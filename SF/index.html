@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mascotas-Halloween</title>
+
+    <!-- Tipografia Astounder Squared BB Bold (Adobe Fonts) -->
+    <link rel="stylesheet" href="https://use.typekit.net/vsp7vcb.css" />
+
+    <style>
+      :root {
+        /* ============================================================
+         LIENZO FIJO: 2560 x 1440 px
+
+         CAMBIA LEFT / TOP POR SEPARADO PARA MOVER CADA ELEMENTO.
+         Todos los tamanos y desplazamientos estan en px.
+         Las coordenadas se miden desde la esquina superior izquierda
+         del lienzo, NO desde el marco.
+         ============================================================ */
+
+        /* MARCO (PNG transparente) */
+        --marco-left: 50px;
+        --marco-top: 226px;
+        --marco-width: 1332px;
+        --marco-height: 1206px;
+
+        /* FOTO (caja de recorte por DETRAS del marco) */
+        --foto-left: 171px;
+        --foto-top: 252px;
+        --foto-width: 1083px;
+        --foto-height: 1166px;
+
+        /* NOMBRE (por ENCIMA del marco y de la foto) */
+        --nombre-left: 0px;
+        --nombre-top: 1160px;
+        --nombre-width: 1034px;
+        --nombre-height: 240px;
+        --nombre-borde: 15px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        width: 2560px;
+        height: 1440px;
+        margin: 0px;
+        padding: 0px;
+        overflow: hidden;
+      }
+
+      body {
+        position: relative;
+        width: 2560px;
+        height: 1440px;
+        margin: 0px;
+        padding: 0px;
+        overflow: hidden;
+        background: #090909;
+        font-family: Arial, sans-serif;
+      }
+
+      /* CAPA 4: video de fondo, siempre de 2560 x 1440 px. */
+      .fondo-video {
+        position: absolute;
+        left: 0px;
+        top: 0px;
+        z-index: 0;
+        display: block;
+        width: 2560px;
+        height: 1440px;
+        object-fit: cover;
+        object-position: center center;
+        background: #090909;
+      }
+
+      .escena {
+        position: absolute;
+        left: 0px;
+        top: 0px;
+        z-index: 1;
+        width: 2560px;
+        height: 1440px;
+        overflow: hidden;
+        pointer-events: none;
+        isolation: isolate;
+      }
+
+      /* CAPA 3: imagen, recortada al rectangulo definido en px. */
+      .caja-foto {
+        position: absolute;
+        left: var(--foto-left);
+        top: var(--foto-top);
+        z-index: 1;
+        width: var(--foto-width);
+        height: var(--foto-height);
+        overflow: hidden;
+        background: transparent;
+      }
+
+      .caja-foto img {
+        display: block;
+        width: var(--foto-width);
+        height: var(--foto-height);
+        object-fit: cover;
+        object-position: center center;
+        opacity: 0;
+        transition: opacity 250ms ease;
+      }
+
+      .caja-foto img.cargada {
+        opacity: 1;
+      }
+
+      /* CAPA 2: marco; posicion y dimensiones independientes. */
+      .marco {
+        position: absolute;
+        left: var(--marco-left);
+        top: var(--marco-top);
+        z-index: 2;
+        display: block;
+        width: var(--marco-width);
+        height: var(--marco-height);
+        object-fit: fill;
+        user-select: none;
+      }
+
+      /* CAPA 1: nombre, con tamano ajustable sin salirse de su caja. */
+      .nombre {
+        position: absolute;
+        left: var(--nombre-left);
+        top: var(--nombre-top);
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: var(--nombre-width);
+        height: var(--nombre-height);
+        overflow: hidden;
+        text-align: center;
+        color: #ffffff;
+        font-family: "astounder-squared-bb", sans-serif;
+        font-weight: 700;
+        font-style: normal;
+      }
+
+      .nombre-texto {
+        display: block;
+        flex: none;
+        white-space: nowrap;
+        line-height: 1.08;
+        font-size: 120px;
+        color: #ffffff;
+        font-family: "astounder-squared-bb", sans-serif;
+        font-weight: 700;
+        font-style: normal;
+        -webkit-text-stroke: var(--nombre-borde) #260546;
+        paint-order: stroke fill;
+      }
+
+      /* Alerta tecnica: no forma parte de la composicion. */
+      .mensaje-estado {
+        position: absolute;
+        right: 18px;
+        bottom: 18px;
+        z-index: 5;
+        display: none;
+        max-width: 420px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        color: #ffffff;
+        background: #19131fe8;
+        font:
+          14px/1.4 Arial,
+          sans-serif;
+      }
+
+      .mensaje-estado.visible {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- De abajo hacia arriba: video, foto, marco, nombre. -->
+    <video class="fondo-video" autoplay muted loop playsinline preload="auto" aria-hidden="true">
+      <source src="fondo.mp4" type="video/mp4" />
+    </video>
+
+    <main class="escena">
+      <div class="caja-foto">
+        <img id="fotoParticipante" alt="" />
+      </div>
+      <img class="marco" src="Marco.png" alt="Marco decorativo de Halloween" />
+      <div class="nombre" id="nombreParticipante" aria-live="polite">
+        <span class="nombre-texto" id="nombreTexto">Cargando...</span>
+      </div>
+    </main>
+
+    <div class="mensaje-estado" id="mensajeEstado" role="status" aria-live="polite"></div>
+
+    <script>
+      "use strict";
+
+      const CONFIG = {
+        url: "https://script.google.com/macros/s/AKfycbzsoirtBPjCj9eNRPbgSgxZrhmDjyCjKmRIvj6wgJ_boDdBwlw_0ih0RD98qjmOoe_u/exec",
+        duracionRegistroMs: 8000, // Cambiar de participante cada 8 segundos.
+        actualizacionMs: 60000, // Actualizar las respuestas cada 60 segundos.
+        tiempoEsperaMs: 15000,
+        fuenteMinPx: 36, // Tamano MINIMO del nombre en px.
+        fuenteMaxPx: 120, // Tamano MAXIMO del nombre en px.
+        margenNombrePx: 16 // Separacion interna de seguridad en px.
+      };
+
+      const cajaNombre = document.getElementById("nombreParticipante");
+      const textoNombre = document.getElementById("nombreTexto");
+      const foto = document.getElementById("fotoParticipante");
+      const mensajeEstado = document.getElementById("mensajeEstado");
+      let registros = [];
+      let indiceActual = 0;
+      let nombreCompleto = "";
+      let contadorPeticion = 0;
+      let alertaTimer = null;
+
+      function notificar(texto) {
+        mensajeEstado.textContent = texto;
+        mensajeEstado.classList.add("visible");
+        clearTimeout(alertaTimer);
+        alertaTimer = setTimeout(() => mensajeEstado.classList.remove("visible"), 7500);
+      }
+
+      // Compatible con Code.gs (JSONP); evita bloqueos CORS en sitios externos.
+      function consultarAppsScript() {
+        return new Promise((resolve, reject) => {
+          const callback = "_participantesCallback_" + Date.now() + "_" + ++contadorPeticion;
+          const script = document.createElement("script");
+          let terminado = false;
+          let temporizador;
+
+          function limpiar() {
+            clearTimeout(temporizador);
+            script.remove();
+            delete window[callback];
+          }
+          function finalizar(error, datos) {
+            if (terminado) return;
+            terminado = true;
+            limpiar();
+            if (error) reject(error);
+            else resolve(datos);
+          }
+
+          window[callback] = (datos) => finalizar(null, datos);
+          script.onerror = () => finalizar(new Error("No se pudo conectar al Apps Script."));
+          temporizador = setTimeout(
+            () => finalizar(new Error("La consulta tardo demasiado. Comprueba la publicacion de Code.gs.")),
+            CONFIG.tiempoEsperaMs
+          );
+          script.src = CONFIG.url + "?callback=" + encodeURIComponent(callback) + "&_=" + Date.now();
+          document.head.appendChild(script);
+        });
+      }
+
+      function obtenerUrlImagen(valor) {
+        const texto = String(valor ?? "").trim();
+        if (!texto) return "";
+        let url;
+        try {
+          url = new URL(texto);
+        } catch {
+          return "";
+        }
+        if (url.protocol !== "https:" && url.protocol !== "http:") return "";
+
+        if (url.hostname === "drive.google.com") {
+          const partes = url.pathname.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+          const id = partes ? partes[1] : url.searchParams.get("id");
+          if (id) return "https://drive.google.com/thumbnail?id=" + encodeURIComponent(id) + "&sz=w1600";
+        }
+        return url.href;
+      }
+
+      // Mide el texto REAL con la fuente cargada, respetando width y height.
+      // Reduce la fuente en px dentro de los limites; si no cabe al minimo,
+      // recorta el nombre con puntos suspensivos y deja visible el nombre completo
+      // en el atributo title.
+      function ajustarNombre() {
+        if (!nombreCompleto) return;
+        cajaNombre.title = nombreCompleto;
+        textoNombre.textContent = nombreCompleto;
+
+        const margen = CONFIG.margenNombrePx;
+        const maxAncho = cajaNombre.clientWidth - margen * 2;
+        const maxAlto = cajaNombre.clientHeight - margen * 2;
+        const cabe = () => {
+          const rect = textoNombre.getBoundingClientRect();
+          return rect.width <= maxAncho && rect.height <= maxAlto;
+        };
+
+        let bajo = CONFIG.fuenteMinPx;
+        let alto = CONFIG.fuenteMaxPx;
+        let ideal = bajo;
+
+        while (bajo <= alto) {
+          const medio = Math.floor((bajo + alto) / 2);
+          textoNombre.style.fontSize = medio + "px";
+          if (cabe()) {
+            ideal = medio;
+            bajo = medio + 1;
+          } else {
+            alto = medio - 1;
+          }
+        }
+        textoNombre.style.fontSize = ideal + "px";
+
+        if (!cabe()) {
+          const caracteres = Array.from(nombreCompleto);
+          let izquierda = 0;
+          let derecha = caracteres.length;
+          let mejor = "…";
+
+          while (izquierda <= derecha) {
+            const mitad = Math.floor((izquierda + derecha) / 2);
+            const candidato = caracteres.slice(0, mitad).join("").trimEnd() + "…";
+            textoNombre.textContent = candidato;
+            if (cabe()) {
+              mejor = candidato;
+              izquierda = mitad + 1;
+            } else {
+              derecha = mitad - 1;
+            }
+          }
+          textoNombre.textContent = mejor;
+        }
+      }
+
+      function mostrarRegistro(indice) {
+        if (!registros.length) return;
+        indiceActual = ((indice % registros.length) + registros.length) % registros.length;
+        const registro = registros[indiceActual];
+        nombreCompleto = registro.nombre;
+        ajustarNombre();
+
+        foto.classList.remove("cargada");
+        foto.alt = "Foto de " + registro.nombre;
+        foto.onload = () => foto.classList.add("cargada");
+        foto.onerror = () =>
+          notificar("No se pudo mostrar la foto de " + registro.nombre + ". Revisa el enlace y los permisos.");
+        foto.src = registro.urlImagen;
+      }
+
+      async function actualizarRegistros() {
+        try {
+          const datos = await consultarAppsScript();
+          if (!Array.isArray(datos)) throw new Error("El Apps Script no devolvio una lista valida.");
+
+          // Apps Script filtra los aprobados. Aqui se omiten registros incompletos.
+          const nuevos = datos
+            .map((item) => ({
+              nombre: String(item?.nombre ?? "").trim(),
+              urlImagen: obtenerUrlImagen(item?.imagen)
+            }))
+            .filter((item) => item.nombre && item.urlImagen);
+
+          const anterior = registros[indiceActual];
+
+          registros = [...nuevos];
+
+          // Mezclar aleatoriamente los participantes aprobados
+          for (let i = registros.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [registros[i], registros[j]] = [registros[j], registros[i]];
+          }
+
+          if (!registros.length) {
+            nombreCompleto = "No hay registros aprobados";
+            ajustarNombre();
+            foto.removeAttribute("src");
+            foto.classList.remove("cargada");
+            return;
+          }
+
+          const nuevoIndice = anterior
+            ? registros.findIndex((item) => item.nombre === anterior.nombre && item.urlImagen === anterior.urlImagen)
+            : -1;
+          mostrarRegistro(nuevoIndice >= 0 ? nuevoIndice : 0);
+        } catch (error) {
+          console.error("Error al consultar los registros:", error);
+          notificar("No se pudieron actualizar los datos. Comprueba Apps Script y los permisos.");
+          if (!registros.length) {
+            nombreCompleto = "Sin conexion";
+            ajustarNombre();
+          }
+        }
+      }
+
+      // Recalcular despues de la carga de la tipografia de Adobe Fonts.
+      document.fonts?.ready.then(ajustarNombre).catch(() => {});
+      actualizarRegistros();
+      setInterval(() => {
+        if (registros.length > 1) mostrarRegistro(indiceActual + 1);
+      }, CONFIG.duracionRegistroMs);
+      setInterval(actualizarRegistros, CONFIG.actualizacionMs);
+    </script>
+  </body>
+</html>
