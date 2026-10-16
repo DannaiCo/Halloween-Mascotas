@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Halloween - Santa Fe Curva</title>
+    <link rel="stylesheet" href="https://use.typekit.net/vsp7vcb.css" />
+    <style>
+      :root {
+        /* POSICIONES EN EL LIENZO BASE DE 2560 x 1440 px */
+        /* MARCO */
+        --marco-left: 1761px;
+        --marco-top: 326px;
+        --marco-width: 1904px;
+        --marco-height: 1796px;
+
+        /* FOTO: caja recortada detras del marco */
+        --foto-left: 1935px;
+        --foto-top: 445px;
+        --foto-width: 1548px;
+        --foto-height: 1561px;
+
+        /* NOMBRE: encima del marco */
+        --nombre-left: 1957px;
+        --nombre-top: 1787px;
+        --nombre-width: 942px;
+        --nombre-height: 214px;
+        --nombre-borde: 15px;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      /* IGUAL QUE EL CODIGO QUE FUNCIONA:
+       la ventana es dinamica y el lienzo interno siempre mide 2560 x 1440 px. */
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #090909;
+        font-family: Arial, sans-serif;
+      }
+      #viewport {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        background: #090909;
+      }
+      #lienzo {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 3840px;
+        height: 2160px;
+        overflow: hidden;
+        transform-origin: center center;
+        background: #090909;
+      }
+      /* CAPA 4: video */
+      .fondo-video {
+        position: absolute;
+        left: 0px;
+        top: 0px;
+        z-index: 0;
+        display: block;
+        width: 3840px;
+        height: 2160px;
+        object-fit: cover;
+        object-position: center center;
+        background: #090909;
+      }
+      .escena {
+        position: absolute;
+        left: 0px;
+        top: 0px;
+        z-index: 1;
+        width: 3840px;
+        height: 2160px;
+        overflow: hidden;
+        isolation: isolate;
+        pointer-events: none;
+      }
+      /* CAPA 3: foto */
+      .caja-foto {
+        position: absolute;
+        z-index: 1;
+        left: var(--foto-left);
+        top: var(--foto-top);
+        width: var(--foto-width);
+        height: var(--foto-height);
+        overflow: hidden;
+        background: transparent;
+      }
+      .caja-foto img {
+        display: block;
+        width: var(--foto-width);
+        height: var(--foto-height);
+        object-fit: cover;
+        object-position: center center;
+        opacity: 0;
+        transition: opacity 250ms ease;
+      }
+      .caja-foto img.cargada {
+        opacity: 1;
+      }
+      /* CAPA 2: marco */
+      .marco {
+        position: absolute;
+        z-index: 2;
+        left: var(--marco-left);
+        top: var(--marco-top);
+        width: var(--marco-width);
+        height: var(--marco-height);
+        object-fit: fill;
+        user-select: none;
+      }
+      /* CAPA 1: nombre */
+      .nombre {
+        position: absolute;
+        z-index: 3;
+        left: var(--nombre-left);
+        top: var(--nombre-top);
+        width: var(--nombre-width);
+        height: var(--nombre-height);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        text-align: center;
+      }
+      .nombre-texto {
+        display: block;
+        flex: none;
+        white-space: nowrap;
+        font-family: "astounder-squared-bb", sans-serif;
+        font-weight: 700;
+        font-style: normal;
+        font-size: 150px;
+        line-height: 1.08;
+        color: #ffffff;
+        -webkit-text-stroke: var(--nombre-borde) #260546;
+        paint-order: stroke fill;
+      }
+      .mensaje-estado {
+        position: absolute;
+        right: 24px;
+        bottom: 24px;
+        z-index: 8;
+        display: none;
+        max-width: 900px;
+        padding: 16px 22px;
+        background: #19131f;
+        color: #ffffff;
+        font:
+          26px/1.3 Arial,
+          sans-serif;
+      }
+      .mensaje-estado.visible {
+        display: block;
+      }
+      .diagnostico {
+        position: absolute;
+        left: 24px;
+        top: 24px;
+        z-index: 9;
+        display: none;
+        padding: 16px 20px;
+        color: #ffffff;
+        background: #151515;
+        font: 26px/1.3 monospace;
+        white-space: pre-line;
+      }
+      .diagnostico.visible {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Misma estructura del HTML de referencia que SI funciona -->
+    <main id="viewport">
+      <section id="lienzo">
+        <video class="fondo-video" autoplay muted loop playsinline preload="auto" aria-hidden="true">
+          <source src="fondo.mp4" type="video/mp4" />
+        </video>
+        <div class="escena">
+          <div class="caja-foto"><img id="fotoParticipante" alt="" /></div>
+          <img class="marco" src="Marco.png" alt="Marco de Halloween" />
+          <div class="nombre" id="nombreParticipante">
+            <span class="nombre-texto" id="nombreTexto">Cargando...</span>
+          </div>
+        </div>
+        <div class="mensaje-estado" id="mensajeEstado" role="status"></div>
+        <div class="diagnostico" id="diagnostico"></div>
+      </section>
+    </main>
+    <script>
+      "use strict";
+      const URL_APPS_SCRIPT =
+        "https://script.google.com/macros/s/AKfycbzsoirtBPjCj9eNRPbgSgxZrhmDjyCjKmRIvj6wgJ_boDdBwlw_0ih0RD98qjmOoe_u/exec";
+      const ANCHO_LIENZO = 3840;
+      const ALTO_LIENZO = 2160;
+      const CONFIG = {
+        duracionRegistroMs: 8000,
+        actualizacionMs: 60000,
+        tiempoEsperaMs: 15000,
+        reintentos: 3,
+        fuenteMinPx: 50,
+        fuenteMaxPx: 200,
+        margenNombrePx: 16
+      };
+      const lienzo = document.getElementById("lienzo");
+      const diagnostico = document.getElementById("diagnostico");
+      const cajaNombre = document.getElementById("nombreParticipante");
+      const textoNombre = document.getElementById("nombreTexto");
+      const foto = document.getElementById("fotoParticipante");
+      const mensajeEstado = document.getElementById("mensajeEstado");
+      const modoDiagnostico = new URLSearchParams(location.search).get("diagnostico") === "1";
+
+      /* COPIADO EN SU ESTRUCTURA DEL CODIGO QUE FUNCIONA:
+       el calculo se hace con innerWidth/innerHeight del reproductor,
+       y el transform usa translate(-50%, -50%) scale(). */
+      function ajustarLienzo() {
+        const escalaX = window.innerWidth / ANCHO_LIENZO;
+        const escalaY = window.innerHeight / ALTO_LIENZO;
+        const escala = Math.min(escalaX, escalaY);
+        lienzo.style.transform = `translate(-50%, -50%) scale(${escala})`;
+        if (modoDiagnostico) {
+          diagnostico.classList.add("visible");
+          diagnostico.textContent =
+            `Ventana: ${window.innerWidth} x ${window.innerHeight} px\n` +
+            `Lienzo: ${ANCHO_LIENZO} x ${ALTO_LIENZO} px\n` +
+            `Escala: ${escala.toFixed(4)}`;
+        }
+      }
+
+      let registros = [];
+      let pendientes = [];
+      let registroActual = null;
+      let nombreCompleto = "";
+      let cargaEnCurso = false;
+      let numeroConsulta = 0;
+      let alertaTimer = null;
+      const clave = (r) => `${r.nombre}|||${r.urlImagen}`;
+
+      function notificar(mensaje) {
+        mensajeEstado.textContent = mensaje;
+        mensajeEstado.classList.add("visible");
+        clearTimeout(alertaTimer);
+        alertaTimer = setTimeout(() => mensajeEstado.classList.remove("visible"), 7000);
+      }
+
+      // Acepta links de Google Drive con /file/d/ID o ?id=ID.
+      function obtenerUrlImagen(valor) {
+        const texto = String(valor ?? "").trim();
+        if (!texto) return "";
+        let url;
+        try {
+          url = new URL(texto);
+        } catch {
+          return "";
+        }
+        if (url.protocol !== "https:" && url.protocol !== "http:") return "";
+        if (url.hostname === "drive.google.com") {
+          const ruta = url.pathname.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+          const id = ruta ? ruta[1] : url.searchParams.get("id");
+          if (id) return `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1600`;
+        }
+        return url.href;
+      }
+
+      // Primer intento con fetch JSON, como el HTML que SI funciona.
+      // Alternativa JSONP para implementaciones Code.gs que lo soporten.
+      async function consultarFetch() {
+        const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+        const timer = controller ? setTimeout(() => controller.abort(), CONFIG.tiempoEsperaMs) : null;
+        try {
+          const separador = URL_APPS_SCRIPT.includes("?") ? "&" : "?";
+          const url = URL_APPS_SCRIPT + separador + "_=" + Date.now();
+          const respuesta = await fetch(url, {
+            method: "GET",
+            cache: "no-store",
+            redirect: "follow",
+            ...(controller ? { signal: controller.signal } : {})
+          });
+          if (!respuesta.ok) throw new Error("Respuesta HTTP " + respuesta.status);
+          const texto = (await respuesta.text()).trim();
+          if (/^\s*<(!doctype|html)/i.test(texto)) throw new Error("Google devolvio HTML, no JSON");
+          const datos = JSON.parse(texto);
+          if (!Array.isArray(datos)) throw new Error("Respuesta JSON invalida");
+          return datos;
+        } finally {
+          if (timer) clearTimeout(timer);
+        }
+      }
+
+      function consultarJSONP() {
+        return new Promise((resolve, reject) => {
+          const nombreCallback = "_halloweenCallback_" + Date.now() + "_" + ++numeroConsulta;
+          const script = document.createElement("script");
+          let cerrado = false;
+          let timer;
+          const terminar = (error, datos) => {
+            if (cerrado) return;
+            cerrado = true;
+            clearTimeout(timer);
+            script.remove();
+            try {
+              delete window[nombreCallback];
+            } catch (_) {
+              window[nombreCallback] = undefined;
+            }
+            error ? reject(error) : resolve(datos);
+          };
+          window[nombreCallback] = (datos) => terminar(null, datos);
+          script.onerror = () => terminar(new Error("No se pudo consultar Apps Script por JSONP"));
+          timer = setTimeout(() => terminar(new Error("Tiempo agotado por JSONP")), CONFIG.tiempoEsperaMs);
+          const separador = URL_APPS_SCRIPT.includes("?") ? "&" : "?";
+          script.src =
+            URL_APPS_SCRIPT + separador + "callback=" + encodeURIComponent(nombreCallback) + "&_=" + Date.now();
+          document.head.appendChild(script);
+        });
+      }
+
+      async function consultarAppsScript() {
+        try {
+          return await consultarFetch();
+        } catch (errorFetch) {
+          console.warn("Fetch no disponible, probando JSONP:", errorFetch);
+          const datos = await consultarJSONP();
+          if (!Array.isArray(datos)) throw new Error("Apps Script no devolvio una lista");
+          return datos;
+        }
+      }
+
+      function ajustarNombre() {
+        if (!nombreCompleto) return;
+        cajaNombre.title = nombreCompleto;
+        textoNombre.textContent = nombreCompleto;
+        const ancho = Math.max(0, cajaNombre.clientWidth - 2 * CONFIG.margenNombrePx);
+        const alto = Math.max(0, cajaNombre.clientHeight - 2 * CONFIG.margenNombrePx);
+        const cabe = () => {
+          const rect = textoNombre.getBoundingClientRect();
+          // getBoundingClientRect esta afectado por la escala del lienzo;
+          // comparar usando dimensiones naturales sin escala.
+          const escala = lienzo.getBoundingClientRect().width / ANCHO_LIENZO || 1;
+          return rect.width / escala <= ancho && rect.height / escala <= alto;
+        };
+        let minimo = CONFIG.fuenteMinPx;
+        let maximo = CONFIG.fuenteMaxPx;
+        let elegido = minimo;
+        while (minimo <= maximo) {
+          const medio = Math.floor((minimo + maximo) / 2);
+          textoNombre.style.fontSize = medio + "px";
+          if (cabe()) {
+            elegido = medio;
+            minimo = medio + 1;
+          } else {
+            maximo = medio - 1;
+          }
+        }
+        textoNombre.style.fontSize = elegido + "px";
+        if (!cabe()) {
+          let bajo = 0;
+          let altoTexto = Array.from(nombreCompleto).length;
+          let visible = "…";
+          const caracteres = Array.from(nombreCompleto);
+          while (bajo <= altoTexto) {
+            const medio = Math.floor((bajo + altoTexto) / 2);
+            const candidato = caracteres.slice(0, medio).join("").trimEnd() + "…";
+            textoNombre.textContent = candidato;
+            if (cabe()) {
+              visible = candidato;
+              bajo = medio + 1;
+            } else {
+              altoTexto = medio - 1;
+            }
+          }
+          textoNombre.textContent = visible;
+        }
+      }
+
+      function barajar(lista) {
+        const mezcla = [...lista];
+        for (let i = mezcla.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [mezcla[i], mezcla[j]] = [mezcla[j], mezcla[i]];
+        }
+        if (mezcla.length > 1 && registroActual && clave(mezcla[0]) === clave(registroActual)) {
+          [mezcla[0], mezcla[1]] = [mezcla[1], mezcla[0]];
+        }
+        return mezcla;
+      }
+
+      function mostrarRegistro(registro) {
+        if (!registro) return;
+        registroActual = registro;
+        nombreCompleto = registro.nombre;
+        ajustarNombre();
+        foto.classList.remove("cargada");
+        foto.alt = "Foto de " + registro.nombre;
+        foto.onload = () => foto.classList.add("cargada");
+        foto.onerror = () => notificar("No fue posible mostrar la foto. Revisa su URL y permisos.");
+        foto.src = registro.urlImagen;
+      }
+
+      function mostrarSiguiente() {
+        if (!registros.length) return;
+        if (!pendientes.length) pendientes = barajar(registros);
+        mostrarRegistro(pendientes.shift());
+      }
+
+      async function actualizarRegistros() {
+        if (cargaEnCurso) return;
+        cargaEnCurso = true;
+        try {
+          let datos;
+          let ultimoError;
+          for (let intento = 0; intento < CONFIG.reintentos; intento++) {
+            try {
+              datos = await consultarAppsScript();
+              break;
+            } catch (error) {
+              ultimoError = error;
+              console.warn("Intento fallido:", error);
+            }
+          }
+          if (!datos) throw ultimoError || new Error("No se recibieron datos");
+          const nuevos = datos
+            .map((item) => ({
+              nombre: String(item?.nombre ?? item?.Nombre ?? "").trim(),
+              urlImagen: obtenerUrlImagen(item?.imagen ?? item?.Imagen)
+            }))
+            .filter((item) => item.nombre && item.urlImagen);
+          const idsAnteriores = new Set(registros.map(clave));
+          const idsNuevos = new Set(nuevos.map(clave));
+          registros = nuevos;
+          pendientes = pendientes.filter((r) => idsNuevos.has(clave(r)));
+          // No mezclar de nuevo cada 60 s. Solo anadir nuevos aprobados.
+          const incorporados = nuevos.filter(
+            (r) => !idsAnteriores.has(clave(r)) && (!registroActual || clave(r) !== clave(registroActual))
+          );
+          if (registroActual && incorporados.length) pendientes.push(...barajar(incorporados));
+          if (!registros.length) {
+            registroActual = null;
+            pendientes = [];
+            nombreCompleto = "No hay registros aprobados";
+            ajustarNombre();
+            foto.classList.remove("cargada");
+            foto.removeAttribute("src");
+            return;
+          }
+          if (!registroActual || !idsNuevos.has(clave(registroActual))) mostrarSiguiente();
+        } catch (error) {
+          console.error("Error de datos:", error);
+          notificar("Problema de conexion con Apps Script. Se conservan los ultimos datos.");
+          if (!registros.length) {
+            nombreCompleto = "Sin conexion";
+            ajustarNombre();
+          }
+        } finally {
+          cargaEnCurso = false;
+        }
+      }
+
+      ajustarLienzo();
+      window.addEventListener("resize", ajustarLienzo);
+      document.fonts?.ready.then(ajustarNombre).catch(() => {});
+      actualizarRegistros();
+      setInterval(mostrarSiguiente, CONFIG.duracionRegistroMs);
+      setInterval(actualizarRegistros, CONFIG.actualizacionMs);
+    </script>
+  </body>
+</html>
